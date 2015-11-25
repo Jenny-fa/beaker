@@ -11,6 +11,7 @@
 
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/IRBuilder.h>
+#include <llvm/Analysis/LoopInfo.h>
 
 
 // Used to maintain a mapping of Beaker declarations
@@ -115,15 +116,16 @@ struct Generator
   void gen_local(Variable_decl const*);
   void gen_global(Variable_decl const*);
 
-  llvm::LLVMContext cxt;
-  llvm::IRBuilder<> build;
-  llvm::Module*     mod;
-  llvm::Function*   fn;
-  llvm::Value*      ret;
+  llvm::LLVMContext                                cxt;
+  llvm::IRBuilder<>                                build;
+  llvm::LoopInfoBase<llvm::BasicBlock, llvm::Loop> fn_loops;
+  llvm::Module*                                    mod;
+  llvm::Function*                                  fn;
+  llvm::Value*                                     ret;
 
-  Symbol_stack      stack;
-  Type_env          types;
-  String_env        strings;
+  Symbol_stack                                     stack;
+  Type_env                                         types;
+  String_env                                       strings;
 
   struct Symbol_sentinel;
 };
@@ -131,7 +133,7 @@ struct Generator
 
 inline
 Generator::Generator()
-  : cxt(), build(cxt), mod(nullptr)
+  : cxt(), build(cxt), fn_loops(), mod(nullptr)
 { }
 
 

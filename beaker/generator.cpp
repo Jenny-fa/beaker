@@ -283,114 +283,189 @@ Generator::gen(Decl_expr const* e)
 llvm::Value*
 Generator::gen(Add_expr const* e)
 {
-  llvm::Value* l = gen(e->left());
-  llvm::Value* r = gen(e->right());
-  return build.CreateAdd(l, r);
+  llvm::Value* left = gen(e->left());
+  llvm::Value* right = gen(e->right());
+  return build.CreateAdd(left, right);
 }
 
 
 llvm::Value*
 Generator::gen(Sub_expr const* e)
 {
-  throw std::runtime_error("not implemented");
+  llvm::Value* left = gen(e->left());
+  llvm::Value* right = gen(e->right());
+  return build.CreateSub(left, right);
 }
 
 
 llvm::Value*
 Generator::gen(Mul_expr const* e)
 {
-  throw std::runtime_error("not implemented");
+  llvm::Value* left = gen(e->left());
+  llvm::Value* right = gen(e->right());
+  return build.CreateMul(left, right);
 }
 
 
 llvm::Value*
 Generator::gen(Div_expr const* e)
 {
-  throw std::runtime_error("not implemented");
+  llvm::Value* left = gen(e->left());
+  llvm::Value* right = gen(e->right());
+  return build.CreateSDiv(left, right);
 }
 
 
 llvm::Value*
 Generator::gen(Rem_expr const* e)
 {
-  throw std::runtime_error("not implemented");
+  llvm::Value* left = gen(e->left());
+  llvm::Value* right = gen(e->right());
+  return build.CreateSRem(left, right);
 }
 
 
 llvm::Value*
 Generator::gen(Neg_expr const* e)
 {
-  throw std::runtime_error("not implemented");
+  llvm::Value* operand = gen(e->operand());
+  return build.CreateNeg(operand);
 }
 
 
 llvm::Value*
 Generator::gen(Pos_expr const* e)
 {
-  throw std::runtime_error("not implemented");
+  llvm::Value* operand = gen(e->operand());
+  return build.CreateLoad(operand);
 }
 
 
 llvm::Value*
 Generator::gen(Eq_expr const* e)
 {
-  throw std::runtime_error("not implemented");
+  llvm::Value* left = gen(e->left());
+  llvm::Value* right = gen(e->right());
+  return build.CreateICmpEQ(left, right);
 }
 
 
 llvm::Value*
 Generator::gen(Ne_expr const* e)
 {
-  throw std::runtime_error("not implemented");
+  llvm::Value* left = gen(e->left());
+  llvm::Value* right = gen(e->right());
+  return build.CreateICmpNE(left, right);
 }
 
 
 llvm::Value*
 Generator::gen(Lt_expr const* e)
 {
-  throw std::runtime_error("not implemented");
+  llvm::Value* left = gen(e->left());
+  llvm::Value* right = gen(e->right());
+  return build.CreateICmpSLT(left, right);
 }
 
 
 llvm::Value*
 Generator::gen(Gt_expr const* e)
 {
-  throw std::runtime_error("not implemented");
+  llvm::Value* left = gen(e->left());
+  llvm::Value* right = gen(e->right());
+  return build.CreateICmpSGT(left, right);
 }
 
 
 llvm::Value*
 Generator::gen(Le_expr const* e)
 {
-  throw std::runtime_error("not implemented");
+  llvm::Value* left = gen(e->left());
+  llvm::Value* right = gen(e->right());
+  return build.CreateICmpSLE(left, right);
 }
 
 
 llvm::Value*
 Generator::gen(Ge_expr const* e)
 {
-  throw std::runtime_error("not implemented");
+  llvm::Value* left = gen(e->left());
+  llvm::Value* right = gen(e->right());
+  return build.CreateICmpSGE(left, right);
 }
 
 
 llvm::Value*
 Generator::gen(And_expr const* e)
 {
-  throw std::runtime_error("not implemented");
+  llvm::BasicBlock* head_block = build.GetInsertBlock();
+  llvm::BasicBlock* tail_block = llvm::BasicBlock::Create(cxt, "", fn, head_block->getNextNode());
+  llvm::BasicBlock* then_block = llvm::BasicBlock::Create(cxt, "", fn, tail_block);
+
+  // Update loop information.
+  llvm::Loop* loop = fn_loops.getLoopFor(head_block);
+  if (loop) {
+    loop->addBasicBlockToLoop(then_block, fn_loops);
+    loop->addBasicBlockToLoop(tail_block, fn_loops);
+  }
+
+  // Generate code for the left operand.
+  llvm::Value* left = build.CreateTrunc(gen(e->left()), build.getInt1Ty());
+
+  build.CreateCondBr(left, then_block, tail_block);
+  build.SetInsertPoint(then_block);
+
+  // Generate code for the right operand.
+  llvm::Value* right = build.CreateTrunc(gen(e->right()), build.getInt1Ty());
+
+  build.CreateBr(tail_block);
+  build.SetInsertPoint(tail_block);
+
+  llvm::PHINode* phi_inst = build.CreatePHI(build.getInt1Ty(), 2);
+  phi_inst->addIncoming(build.getFalse(), head_block);
+  phi_inst->addIncoming(right, then_block);
+  return phi_inst;
 }
 
 
 llvm::Value*
 Generator::gen(Or_expr const* e)
 {
-  throw std::runtime_error("not implemented");
+  llvm::BasicBlock* head_block = build.GetInsertBlock();
+  llvm::BasicBlock* tail_block = llvm::BasicBlock::Create(cxt, "", fn, head_block->getNextNode());
+  llvm::BasicBlock* then_block = llvm::BasicBlock::Create(cxt, "", fn, tail_block);
+
+  // Update loop information.
+  llvm::Loop* loop = fn_loops.getLoopFor(head_block);
+  if (loop) {
+    loop->addBasicBlockToLoop(then_block, fn_loops);
+    loop->addBasicBlockToLoop(tail_block, fn_loops);
+  }
+
+  // Generate code for the left operand.
+  llvm::Value* left = build.CreateTrunc(gen(e->left()), build.getInt1Ty());
+
+  build.CreateCondBr(left, tail_block, then_block);
+  build.SetInsertPoint(then_block);
+
+  // Generate code for the right operand.
+  llvm::Value* right = build.CreateTrunc(gen(e->right()), build.getInt1Ty());
+
+  build.CreateBr(tail_block);
+  build.SetInsertPoint(tail_block);
+
+  llvm::PHINode* phi_inst = build.CreatePHI(build.getInt1Ty(), 2);
+  phi_inst->addIncoming(build.getTrue(), head_block);
+  phi_inst->addIncoming(right, then_block);
+  return phi_inst;
 }
 
 
 llvm::Value*
 Generator::gen(Not_expr const* e)
 {
-  throw std::runtime_error("not implemented");
+  llvm::Value* operand = gen(e->operand());
+  return build.CreateNot(operand);
 }
 
 
@@ -547,7 +622,7 @@ Generator::gen(Stmt const* s)
 void
 Generator::gen(Empty_stmt const* s)
 {
-  throw std::runtime_error("not implemented");
+  // Do nothing.
 }
 
 
@@ -590,35 +665,143 @@ Generator::gen(Return_stmt const* s)
 void
 Generator::gen(If_then_stmt const* s)
 {
-  throw std::runtime_error("not implemented");
+  llvm::BasicBlock* head_block = build.GetInsertBlock();
+  llvm::BasicBlock* tail_block = llvm::BasicBlock::Create(cxt, "", fn, head_block->getNextNode());
+  llvm::BasicBlock* then_block = llvm::BasicBlock::Create(cxt, "", fn, tail_block);
+
+  // Update loop information.
+  llvm::Loop* loop = fn_loops.getLoopFor(head_block);
+  if (loop) {
+    loop->addBasicBlockToLoop(then_block, fn_loops);
+    loop->addBasicBlockToLoop(tail_block, fn_loops);
+  }
+
+  // Generate code for the if condition.
+  llvm::Value* condition = build.CreateTrunc(gen(s->condition()), build.getInt1Ty());
+
+  build.CreateCondBr(condition, then_block, tail_block);
+  build.SetInsertPoint(then_block);
+
+  // Generate code for the if-then body.
+  gen(s->body());
+
+  if (!build.GetInsertBlock()->getTerminator())
+    build.CreateBr(tail_block);
+
+  build.SetInsertPoint(tail_block);
 }
 
 
 void
 Generator::gen(If_else_stmt const* s)
 {
-  throw std::runtime_error("not implemented");
+  llvm::BasicBlock* head_block = build.GetInsertBlock();
+  llvm::BasicBlock* tail_block = llvm::BasicBlock::Create(cxt, "", fn, head_block->getNextNode());
+  llvm::BasicBlock* then_block = llvm::BasicBlock::Create(cxt, "", fn, tail_block);
+  llvm::BasicBlock* else_block = llvm::BasicBlock::Create(cxt, "", fn, tail_block);
+
+  // Update loop information.
+  llvm::Loop* loop = fn_loops.getLoopFor(head_block);
+  if (loop) {
+    loop->addBasicBlockToLoop(then_block, fn_loops);
+    loop->addBasicBlockToLoop(else_block, fn_loops);
+    loop->addBasicBlockToLoop(tail_block, fn_loops);
+  }
+
+  // Generate code for the if condition.
+  llvm::Value* condition = build.CreateTrunc(gen(s->condition()), build.getInt1Ty());
+
+  build.CreateCondBr(condition, then_block, else_block);
+  build.SetInsertPoint(then_block);
+
+  // Generate code for the if-then body.
+  gen(s->true_branch());
+
+  if (!build.GetInsertBlock()->getTerminator())
+    build.CreateBr(tail_block);
+
+  build.SetInsertPoint(else_block);
+
+  // Generate code for the if-else body.
+  gen(s->false_branch());
+
+  if (!build.GetInsertBlock()->getTerminator())
+    build.CreateBr(tail_block);
+
+  build.SetInsertPoint(tail_block);
 }
 
 
 void
 Generator::gen(While_stmt const* s)
 {
-  throw std::runtime_error("not implemented");
+  llvm::BasicBlock* head_block = build.GetInsertBlock();
+  llvm::BasicBlock* tail_block = llvm::BasicBlock::Create(cxt, "", fn, head_block->getNextNode());
+  llvm::BasicBlock* test_block = llvm::BasicBlock::Create(cxt, "", fn, tail_block);
+  llvm::BasicBlock* do_block = llvm::BasicBlock::Create(cxt, "", fn, tail_block);
+
+  // Create the new loop and update loop information.
+  llvm::Loop* loop = new llvm::Loop();
+  loop->reserveBlocks(2);
+
+  llvm::Loop* parent_loop = fn_loops.getLoopFor(head_block);
+
+  if (parent_loop)
+    parent_loop->addChildLoop(loop);
+  else
+    fn_loops.addTopLevelLoop(loop);
+
+  loop->addBasicBlockToLoop(test_block, fn_loops);
+  loop->addBasicBlockToLoop(do_block, fn_loops);
+
+  build.CreateBr(test_block);
+  build.SetInsertPoint(test_block);
+
+  // Generate code for the loop condition.
+  llvm::Value* condition = build.CreateTrunc(gen(s->condition()), build.getInt1Ty());
+
+  build.CreateCondBr(condition, do_block, tail_block);
+  build.SetInsertPoint(do_block);
+
+  // Generate code for the loop body.
+  gen(s->body());
+
+  if (!build.GetInsertBlock()->getTerminator())
+    build.CreateBr(test_block);
+
+  build.SetInsertPoint(tail_block);
 }
 
 
 void
 Generator::gen(Break_stmt const* s)
 {
-  throw std::runtime_error("not implemented");
+  llvm::BasicBlock* head_block = build.GetInsertBlock();
+  llvm::BasicBlock* tail_block = llvm::BasicBlock::Create(cxt, "", fn, head_block->getNextNode());
+
+  // Update loop information.
+  llvm::Loop* loop = fn_loops.getLoopFor(head_block);
+  loop->addBasicBlockToLoop(tail_block, fn_loops);
+
+  llvm::BasicBlock* exit_block = loop->getExitBlock();
+  build.CreateBr(exit_block);
+  build.SetInsertPoint(tail_block);
 }
 
 
 void
 Generator::gen(Continue_stmt const* s)
 {
-  throw std::runtime_error("not implemented");
+  llvm::BasicBlock* head_block = build.GetInsertBlock();
+  llvm::BasicBlock* tail_block = llvm::BasicBlock::Create(cxt, "", fn, head_block->getNextNode());
+
+  // Update loop information.
+  llvm::Loop* loop = fn_loops.getLoopFor(head_block);
+  loop->addBasicBlockToLoop(tail_block, fn_loops);
+
+  llvm::BasicBlock* header_block = loop->getHeader();
+  build.CreateBr(header_block);
+  build.SetInsertPoint(tail_block);
 }
 
 
@@ -819,6 +1002,7 @@ Generator::gen(Function_decl const* d)
   // Reset stateful info.
   ret = nullptr;
   fn = nullptr;
+  fn_loops.releaseMemory();
 }
 
 
