@@ -336,8 +336,7 @@ Generator::gen(Neg_expr const* e)
 llvm::Value*
 Generator::gen(Pos_expr const* e)
 {
-  llvm::Value* operand = gen(e->operand());
-  return build.CreateLoad(operand);
+  return gen(e->operand());
 }
 
 
